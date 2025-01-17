@@ -15,7 +15,7 @@ type PluginOptions = {
 export function splashScreen(options: PluginOptions) {
   if (!options.logoSrc) {
     throw new Error(
-      "The `logoSrc` option is required for vite-plugin-splash-screen!"
+      "The `logoSrc` option is required for vite-plugin-splash-screen!",
     );
   }
 
@@ -47,7 +47,7 @@ export function splashScreen(options: PluginOptions) {
 
       const logoHtml = fs.readFileSync(
         path.resolve(config.publicDir, logoSrc),
-        "utf8"
+        "utf8",
       );
 
       const splash = splashTemplate({
@@ -70,6 +70,46 @@ export function splashScreen(options: PluginOptions) {
           // Add splash screen to end of body
           .replace("</body>", `${splash}</body>`)
       );
+    },
+    transform(src, id) {
+      if (id.includes("hooks.server")) {
+        const baseStyles = readPluginFile("styles.css");
+
+        let loaderStyles = "";
+
+        if (loaderType === "line") {
+          loaderStyles = readPluginFile("loaders/line.css");
+        } else if (loaderType === "dots") {
+          loaderStyles = readPluginFile("loaders/dots.css");
+        }
+
+        const logoHtml = fs.readFileSync(
+          path.resolve(config.publicDir, logoSrc),
+          "utf8",
+        );
+
+        const splash = splashTemplate({
+          logoHtml,
+          loaderType,
+          minDurationMs,
+        });
+
+        const styles = `
+          <style id="vpss-style">
+            ${baseStyles.replace("/*BG_SPLASH*/", splashBg)}
+            ${loaderStyles.replace("/*BG_LOADER*/", loaderBg)}
+          </style>
+        `;
+
+        return {
+          code: src
+            .replace("_vite_splash_head_", styles.replace(/(\r\n|\n|\r)/gm, ""))
+            .replace(
+              "_vite_splash_body_",
+              splash.replace(/(\r\n|\n|\r)/gm, ""),
+            ),
+        };
+      }
     },
   } satisfies PluginOption;
 }
